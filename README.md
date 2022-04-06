@@ -1,4 +1,4 @@
-<h1 id="week-12-fall-2021-">Week-12 (Fall 2021)</h1>
+<h1 id="week-12">CIS 568 Week-12</h1>
 <h2 id="chapter-8-complementary-codes">Chapter 8 Complementary codes</h2>
 <h2 id="spatial-data-visualization">Spatial Data Visualization</h2>
 <h3 id="examples">Examples</h3>
