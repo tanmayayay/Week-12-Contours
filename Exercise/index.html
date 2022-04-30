@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang = 'en'>
+    <head>
+        <meta charset = 'UTF-8'>
+        <title>CT Scan Visualization</title>
+        <script src="https://d3js.org/d3.v6.min.js"></script>
+
+        <style>
+            body {
+                font-family: sans-serif;
+                font-size: 15px;
+            }
+            svg {
+                margin-left: 350px;
+                padding-left: 4em;
+                padding-right: 2em;
+                text-align: center;
+                background: beige;
+                border: 2px solid;
+                
+            }
+            .rangeslider{
+                padding-left: 300px;
+                padding-top: 40px;
+                width: 60%;
+                text-align: center;
+            }
+            .multi-range {
+                padding-left: 300px;
+                width: 30%;
+                position: relative;
+                height: 50px;
+            }
+            .slider {
+                -webkit-appearance: none;
+                appearance: none;
+                height: 15px;
+                margin: 5;
+                padding: 0 2px;
+                border: 0;
+                border-radius: 5px;
+                background: linear-gradient(black, black) no-repeat center;
+                background-size: 100% 2px;
+                outline: none;
+                opacity: 0.7;
+                -webkit-transition: 0.2s;
+                transition: opacity 0.2s;
+            }
+            .slider:hover {
+                opacity: 1;
+            }
+            .slider::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                appearance: none;
+                width: 25px;
+                height: 25px;
+                margin: 5px 0;
+                border-radius: 50%;
+                background: red;
+                cursor: pointer;
+                position: relative;
+                pointer-events: all;
+                box-shadow: 0 1px 4px 0.5px rgba(0, 0, 0, 0.25);
+            }
+            .slider::-webkit-slider-thumb::before {
+                content: ' ';
+                display: block;
+                position: absolute;
+                top: 13px;
+                left: 100%;
+                width: 2000px;
+                height: 2px;
+            }
+            .slider::-moz-range-thumb {
+                width: 25px;
+                height: 25px;
+                border-radius: 50%;
+                background: red;
+                cursor: pointer;
+            }
+            
+            #sliderRange {
+                width: 100%;
+            }
+            #upper, #lower {
+                width: 30%;
+                color
+            }
+            #min_output{
+            	padding-right: 450px;
+            }
+            #text_min_max {
+            	padding-left: 550px;
+            }
+        </style>
+
+    </head>
+    <body>
+        <div class = 'rangeslider'>
+        <input type = 'range' min = '75' max = '200' value = '100' class = 'slider' id = 'sliderRange'>
+        <p>Threshold Size: <span id='output'></span></p>
+        </div>
+
+        <span class = 'multi-range'>
+            <input type = 'range' min = '0' max = '3024' value = '756' class = slider id = 'lower'>
+            <input type = 'range' min = '0' max = '3024' value = '2268' class = slider id = 'upper'>
+            <p id='text_min_max'>Min: <span id = 'min_output'></span> Max: <span id = 'max_output'></span></p>
+        </span>
+        <svg height = '40vw' width = '50vw' viewbox = '0 0 512 512'></svg>
+        
+
+        <script>
+            const ctData = 'https://raw.githubusercontent.com/umassdgithub/Week-12-Contours/main/Exercise/data/Data_CT.csv';
+            let svg = d3.select('svg');
+
+            let rangeslider = document.getElementById('sliderRange');
+            let output = document.getElementById('output');
+            output.innerHTML = rangeslider.value;
+
+            let steps = 100;
+
+            //update the current slider value each time you drag the slider handle
+            rangeslider.oninput = function() {
+                output.innerHTML = this.value;
+                steps = this.value;
+                plot_contour(ctData)
+            }
+
+            //min-max slider
+            let lowerSlider = document.querySelector('#lower'),
+                upperSlider = document.querySelector('#upper'),
+                lowerVal = parseInt(lowerSlider.value)
+                upperVal = parseInt(upperSlider.value);
+
+            let min_output = document.getElementById('min_output');
+            min_output.innerHTML = lowerVal;
+
+            let max_output = document.getElementById('max_output');
+            max_output.innerHTML = upperVal;
+
+            let min_val = 756;
+            let max_val = 2268;
+
+            upperSlider.oninput = function() {
+                lowerVal = parseInt(lowerSlider.value);
+                upperVal = parseInt(upperSlider.value);
+
+                if (upperVal < lowerVal + 4) {
+                    lowerSlider.value = upperVal - 4;
+
+                    if(lowerVal == lowerSlider.min) {
+                        upperSlider.value = 4;
+                    }
+                }
+
+                min_output.innerHTML = lowerVal;
+                max_output.innerHTML = upperVal;
+                min_val = lowerVal;
+                max_val = upperVal;
+                plot_contour(ctData);
+            };
+
+            lowerSlider.oninput = function() {
+                lowerVal = parseInt(lowerSlider.value);
+                upperVal = parseInt(upperSlider.value);
+
+                if (lowerVal > upperVal - 4) {
+                    upperSlider.value = lowerVal + 4;
+
+                    if (upperVal == upperSlider.max) {
+                        lowerSlider.value = parseInt(upperSlider.max) - 4;
+                    }
+                }
+
+                min_output.innerHTML = parseInt(lowerSlider.value);
+                max_output.innerHTML = parseInt(upperSlider.value);
+                min_val = lowerVal;
+                max_val = upperVal;
+                plot_contour(ctData);
+            };
+            
+            const path = d3.geoPath();
+
+            function plot_contour(fileName) {
+                //step 1 read csv file
+                d3.csv(fileName).then(function (data) {
+                    //data dimensions
+                    let m = 512, n = 512;
+                    //step 2 convert data into 1D list
+                    let values_CT = [];
+                    data.forEach(function (d) {
+                        values_CT.push(+d[0])
+                    });
+
+                //color coding
+                let colors = d3.scaleLinear()
+                    .domain(d3.range(min_val, max_val,
+                        parseInt(Math.abs(max_val-min_val)/6.5)))
+                    .range(["#0d1a50", "#3e5eba", "#2b83ba",
+                    "#abdda4", "#ffffbf", "#fdae61", "#d7191c"])
+                    .interpolate(d3.interpolateHcl);
+
+
+                //step 3 contour generator
+                let contours = d3.contours()
+                    .size([m, n])
+                    .thresholds(d3.range(min_val, max_val, steps)) 
+                    (values_CT);
+
+                //step 4 append contour to path (d)
+                svg.append('g').attr('class', 'contours')
+                    .selectAll('path')
+                    .data(contours)
+                    .enter()
+                    .append('path')
+                    .attr('d', function(d) {return path(d)})
+                    .attr('stroke', 'black')
+                    .attr('stroke-width', '0.1px')
+                    .attr('stroke-linejoin', 'round')
+                    .attr('fill', function(d) { return colors(d.value)})
+                })
+            }
+
+        plot_contour(ctData)
+
+        </script>
+
+    </body>
+</html>
